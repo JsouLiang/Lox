@@ -1,4 +1,4 @@
-package com.company;
+package com.company.tokenizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;

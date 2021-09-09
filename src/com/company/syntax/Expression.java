@@ -4,7 +4,7 @@ import com.company.tokenizer.Token;
 
 public abstract class Expression {
 
-    interface Visitor<R> {
+    public interface Visitor<R> {
         R visitBinaryExpression(Binary expression);
 
         R visitGroupingExpression(Grouping expression);
@@ -14,7 +14,7 @@ public abstract class Expression {
         R visitUnaryExpression(Unary expression);
     }
 
-    abstract <R> R accept(Visitor<R> visitor);
+    public abstract <R> R accept(Visitor<R> visitor);
 
     public static class Binary extends Expression {
         public Binary(Expression left, Token operator, Expression right) {
@@ -23,12 +23,24 @@ public abstract class Expression {
             this.right = right;
         }
 
+        public Expression getLeft() {
+            return left;
+        }
+
+        public Token getOperator() {
+            return operator;
+        }
+
+        public Expression getRight() {
+            return right;
+        }
+
         final Expression left;
         final Token operator;
         final Expression right;
 
         @Override
-        <R> R accept(Visitor<R> visitor) {
+        public  <R> R accept(Visitor<R> visitor) {
             return visitor.visitBinaryExpression(this);
         }
     }
@@ -38,10 +50,14 @@ public abstract class Expression {
             this.expression = expression;
         }
 
+        public Expression getExpression() {
+            return expression;
+        }
+
         final Expression expression;
 
         @Override
-        <R> R accept(Visitor<R> visitor) {
+        public <R> R accept(Visitor<R> visitor) {
             return visitor.visitGroupingExpression(this);
         }
     }
@@ -51,10 +67,14 @@ public abstract class Expression {
             this.value = value;
         }
 
+        public Object getValue() {
+            return value;
+        }
+
         final Object value;
 
         @Override
-        <R> R accept(Visitor<R> visitor) {
+       public <R> R accept(Visitor<R> visitor) {
             return visitor.visitLiteralExpression(this);
         }
     }
@@ -65,11 +85,19 @@ public abstract class Expression {
             this.right = right;
         }
 
+        public Token getOperator() {
+            return operator;
+        }
+
+        public Expression getRight() {
+            return right;
+        }
+
         final Token operator;
         final Expression right;
 
         @Override
-        <R> R accept(Visitor<R> visitor) {
+        public <R> R accept(Visitor<R> visitor) {
             return visitor.visitUnaryExpression(this);
         }
     }

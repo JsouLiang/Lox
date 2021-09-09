@@ -7,6 +7,8 @@ import com.company.tokenizer.TokenType;
 import java.util.List;
 
 public class Parser {
+    private static class ParseError extends RuntimeException {}
+
     private final List<Token> tokens;
     private int current = 0;
 
@@ -20,6 +22,14 @@ public class Parser {
         this.tokens = tokens;
     }
 
+    public Expression parser() {
+        try {
+            return expression();
+        } catch (ParseError error) {
+            return null;
+        }
+    }
+
     /**
      * expression: equality
      * @return
@@ -30,6 +40,10 @@ public class Parser {
 
     /**
      * equality: comparison ( ("!=" | "==") comparison )*
+     * equality is left associative
+     * a == b == c == e
+     * 当解析到 (a == b )== c 时，a == b 是作为 第二个 == 的左子树
+     * 这样可以确保他们的左结合性
      * @return
      */
     private Expression equality() {
@@ -114,7 +128,7 @@ public class Parser {
             // TODO(weiguoliang) consume )
             return new Expression.Grouping(expression);
         }
-        return null;
+        throw error(peek(), "Expect expression.");
     }
 
     /**
@@ -130,6 +144,16 @@ public class Parser {
             }
         }
         return true;
+    }
+
+    private Token consume(TokenType type, String message) {
+        if (check(type)) return advance();
+        throw error(peek(), message);
+    }
+
+    private ParseError error(Token token, String message) {
+//        Lox.error(token, message);
+        return new ParseError();
     }
 
     private boolean check(TokenType type) {

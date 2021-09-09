@@ -1,5 +1,6 @@
 package com.company;
 
+import com.company.interpreter.Interpreter;
 import com.company.syntax.AstPrinter;
 import com.company.tokenizer.Token;
 import com.company.tokenizer.TokenType;
@@ -10,6 +11,7 @@ public class Main {
 
     public static void main(String[] args) {
         // write your code here
+        // -123 * (45.67)
         Expression expression = new Expression.Binary(
                 new Expression.Unary(
                         new Token(TokenType.MINUS, "-", null, 1),
@@ -19,5 +21,6 @@ public class Main {
                         new Expression.Literal(45.67)));
 
         System.out.println(new AstPrinter().print(expression));
+        new Interpreter().interpreter(expression);
     }
 }

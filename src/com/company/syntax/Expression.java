@@ -12,9 +12,45 @@ public abstract class Expression {
         R visitLiteralExpression(Literal expression);
 
         R visitUnaryExpression(Unary expression);
+
+        R visitVariableExpression(Variable expression);
+
+        R visitAssignExpression(Assign expression);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
+
+    /**
+     * 赋值是表达式，而不是语句
+     *
+     * 在 C 语言中，赋值表达式时优先级最低的
+     *
+     * 所以它的优先级在 expression < assign < equality
+     *
+     *  That means the rule slots between expression and equality (the next lowest precedence expression).
+     */
+    public static class Assign extends Expression {
+        public Assign(Token name, Expression value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        public Token getName() {
+            return name;
+        }
+
+        public Expression getValue() {
+            return value;
+        }
+
+        final Token name;
+        final Expression value;
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitAssignExpression(this);
+        }
+    }
 
     public static class Binary extends Expression {
         public Binary(Expression left, Token operator, Expression right) {
@@ -102,4 +138,22 @@ public abstract class Expression {
         }
     }
 
+    public static class Variable extends Expression {
+        public Variable(Token name) {
+            this.name = name;
+        }
+
+        public Token getName() {
+            return name;
+        }
+
+        final Token name;
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitVariableExpression(this);
+        }
+    }
+
 }
+

@@ -1,9 +1,11 @@
 package com.company.parser;
 
 import com.company.syntax.Expression;
+import com.company.syntax.Statement;
 import com.company.tokenizer.Token;
 import com.company.tokenizer.TokenType;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Parser {
@@ -18,25 +20,135 @@ public class Parser {
      * We store the list of tokens and use current to point the next token eagerly waiting to be parsed
      * @param tokens
      */
-    Parser(List<Token> tokens) {
+    public Parser(List<Token> tokens) {
         this.tokens = tokens;
     }
 
-    public Expression parser() {
+    /**
+     * program: declaration* EOF ;
+     *
+     * @return
+     */
+    public List<Statement> parser() {
+        List<Statement> statements = new ArrayList<>();
+        while (!isAtEnd()) {
+            statements.add(declaration());
+        }
+        return statements;
+    }
+
+    /**
+     * declaration: varDeclaration | statement
+     *
+     * Any place where a declaration is allowed also allows non-declaring statements,
+     * so the declaration rule falls through to statement.
+     * Obviously, you can declare stuff at the top level of a script, so program routes to the new rule.
+     * @return
+     */
+    private Statement declaration() {
         try {
-            return expression();
-        } catch (ParseError error) {
+            if (advanceIfMatch(TokenType.VAR)) {
+                return varDeclaration();
+            }
+            return statement();
+        } catch ( ParseError error) {
+//            synchronize();
             return null;
         }
     }
 
     /**
-     * expression: equality
+     * statement: exprStatement | printStatement | blockStatement
+     * @return
+     */
+    private Statement statement() {
+        if (advanceIfMatch(TokenType.PRINT)) {
+            return printStatement();
+        }
+        if (advanceIfMatch(TokenType.LEFT_BRACE)) {
+            return blockStatement();
+        }
+        return expressionStatement();
+    }
+
+    /**
+     * exprStatement: expression ";"
+     * @return
+     */
+    private Statement expressionStatement() {
+        Expression expression = expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after value.");
+        return new Statement.ExprStatement(expression);
+    }
+
+    /**
+     * printStatement: "print" expression ";"
+     * @return
+     */
+    private Statement printStatement() {
+        Expression expression = expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after value.");
+        return new Statement.PrintStatement(expression);
+    }
+
+    /**
+     * blockStatement: "{" declaration* "}"
+     * @return
+     */
+    private Statement blockStatement() {
+        List<Statement> statements = new ArrayList<>();
+        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(declaration());
+        }
+        consume(TokenType.RIGHT_BRACE, "Expect '}' after block");
+        return new Statement.BlockStatement(statements);
+    }
+
+    /**
+     * varStatement: "var" IDENTIFIER ("=" expression)? ";"
+     * @return
+     */
+    private Statement varDeclaration() {
+        Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
+        Expression initial = null;
+        // matched the =
+        if (advanceIfMatch(TokenType.EQUAL)) {
+            initial = expression();
+        }
+        consume(TokenType.SEMICOLON, "Except ';' after variable declaration.");
+        return new Statement.VarDeclaration(name, initial);
+    }
+
+    /**
+     * expression: assignment
      * @return
      */
     private Expression expression() {
-        return equality();
+        return assignment();
     }
+
+
+    /**
+     * assignment: IDENTIFIER "=" assignment | equality
+     * 上面的语义表示赋值表达式要么是一个
+     * 1. 标识符后面跟一个=在跟一个值或者表达式
+     * 2. 判等表达式
+     * @return
+     */
+    private Expression assignment() {
+        Expression expr = equality();
+        if (advanceIfMatch(TokenType.EQUAL)) {
+            Token equals = previous();
+            Expression value = assignment();
+            if (expr instanceof Expression.Variable) {
+                Token name = ((Expression.Variable)expr).getName();
+                return new Expression.Assign(name, value);
+            }
+            error(equals, "Invalid assignment target");
+        }
+        return expr;
+    }
+
 
     /**
      * equality: comparison ( ("!=" | "==") comparison )*
@@ -48,7 +160,7 @@ public class Parser {
      */
     private Expression equality() {
         Expression expression = comparison();
-        while (match(TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL)) {
+        while (advanceIfMatch(TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL)) {
             Token operator = previous();
             Expression right = comparison();
             expression = new Expression.Binary(expression, operator, right);
@@ -62,7 +174,7 @@ public class Parser {
      */
     private Expression comparison() {
         Expression left = term();
-        while (match(TokenType.LESS_EQUAL, TokenType.LESS, TokenType.GREATER, TokenType.GREATER_EQUAL)) {
+        while (advanceIfMatch(TokenType.LESS_EQUAL, TokenType.LESS, TokenType.GREATER, TokenType.GREATER_EQUAL)) {
             Token operator = previous();
             Expression right = term();
             left = new Expression.Binary(left, operator, right);
@@ -76,7 +188,7 @@ public class Parser {
      */
     private Expression term() {
         Expression left = factor();
-        while (match(TokenType.PLUS, TokenType.MINUS)) {
+        while (advanceIfMatch(TokenType.PLUS, TokenType.MINUS)) {
             Token operator = previous();
             Expression right = factor();
             left = new Expression.Binary(left, operator, right);
@@ -90,7 +202,7 @@ public class Parser {
      */
     private Expression factor() {
         Expression left = unary();
-        while (match(TokenType.STAR, TokenType.SLASH)) {
+        while (advanceIfMatch(TokenType.STAR, TokenType.SLASH)) {
             Token operator = previous();
             Expression right = unary();
             left = new Expression.Binary(left, operator, right);
@@ -103,7 +215,7 @@ public class Parser {
      * @return
      */
     private Expression unary() {
-        if (match(TokenType.BANG, TokenType.MINUS)) {
+        if (advanceIfMatch(TokenType.BANG, TokenType.MINUS)) {
             Token operator = previous();
             Expression unary = unary();
             return new Expression.Unary(operator, unary);
@@ -113,17 +225,20 @@ public class Parser {
 
     /**
      * primary: NUMBER | STRING | "true" | "false" | "nil"
-     *                | "(" expression ")" ;
+     *                | "(" expression ")" | IDENTIFIER;
      * @return
      */
     private Expression primary() {
-        if (match(TokenType.TRUE)) return new Expression.Literal(true);
-        if (match(TokenType.FALSE)) return new Expression.Literal(false);
-        if (match(TokenType.NIL)) return new Expression.Literal(null);
-        if (match(TokenType.NUMBER, TokenType.STRING)) {
+        if (advanceIfMatch(TokenType.TRUE)) return new Expression.Literal(true);
+        if (advanceIfMatch(TokenType.FALSE)) return new Expression.Literal(false);
+        if (advanceIfMatch(TokenType.NIL)) return new Expression.Literal(null);
+        if (advanceIfMatch(TokenType.NUMBER, TokenType.STRING)) {
             return new Expression.Literal(previous().literal);
         }
-        if (match(TokenType.LEFT_PAREN)) {
+        if (advanceIfMatch(TokenType.IDENTIFIER)) {
+            return new Expression.Variable(previous());
+        }
+        if (advanceIfMatch(TokenType.LEFT_PAREN)) {
             Expression expression = expression();
             // TODO(weiguoliang) consume )
             return new Expression.Grouping(expression);
@@ -136,14 +251,14 @@ public class Parser {
      * @param tokenTypes
      * @return
      */
-    private boolean match(TokenType... tokenTypes) {
+    private boolean advanceIfMatch(TokenType... tokenTypes) {
         for (TokenType type: tokenTypes) {
-            if (!check(type)) {
+            if (check(type)) {
                 advance();
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     private Token consume(TokenType type, String message) {

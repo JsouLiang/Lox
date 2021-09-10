@@ -1,9 +1,10 @@
 package com.company.interpreter;
 
+import com.company.environment.Environment;
 import com.company.syntax.Expression;
+import com.company.syntax.Statement;
 
-import java.io.DataOutput;
-import java.io.ObjectStreamException;
+import java.util.List;
 
 /**
  * 当解析完字符串生成语法树之后，接下来就是对每个语法节点进行解释计算
@@ -12,9 +13,22 @@ import java.io.ObjectStreamException;
  * <p>
  * 这里我们使用访问者模式，来对每种节点指定操作逻辑
  */
-public class Interpreter implements Expression.Visitor<Object> {
-    public Object interpreter(Expression exp) {
-        return exp.accept(this);
+public class Interpreter implements Expression.Visitor<Object>, Statement.Visitor<Void> {
+
+    private Environment environment = new Environment();
+
+    public void interpreter(List<Statement> statements) {
+        try {
+            for (Statement stmt: statements) {
+                execute(stmt);
+            }
+        } catch (Exception e/*RuntimeError error*/) {
+
+        }
+    }
+
+    private void execute(Statement statement) {
+        statement.accept(this);
     }
 
     @Override
@@ -107,4 +121,65 @@ public class Interpreter implements Expression.Visitor<Object> {
         return true;
     }
 
+    /**
+     * 获取声明变量的值
+     * @param expression
+     * @return
+     */
+    @Override
+    public Object visitVariableExpression(Expression.Variable expression) {
+        return environment.get(expression.getName());
+    }
+
+    @Override
+    public Object visitAssignExpression(Expression.Assign expression) {
+        Object value = evaluate(expression.getValue());
+        environment.assign(expression.getName(), value);
+        return value;
+    }
+
+    @Override
+    public Void visitExpressionStatement(Statement.ExprStatement statement) {
+        // evaluate the statement expression
+        evaluate(statement.getExpr());
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStatement(Statement.PrintStatement statement) {
+        Object value = evaluate(statement.getExpr());
+        System.out.println("");
+
+        return null;
+    }
+
+    @Override
+    public Void visitVarDeclaration(Statement.VarDeclaration declaration) {
+        Object value = null;
+        // if the declaration has an expression, evaluate this
+        if (declaration.getExpression() != null) {
+            value = evaluate(declaration.getExpression());
+        }
+        environment.define(declaration.getName().lexeme, value);
+        return null;
+    }
+
+    @Override
+    public Void visitBlockStatement(Statement.BlockStatement blockStatement) {
+        // 当访问到 block scope 时，创建一个新的 Environment 同时当前的environment 作为新 Environment 的 enclosing
+        executeBlock(blockStatement.getStatements(), new Environment(environment));
+        return null;
+    }
+
+    void executeBlock(List<Statement> statements, Environment environment) {
+        Environment previous = this.environment;
+        try {
+            this.environment = environment;
+            for (Statement statement : statements) {
+                execute(statement);
+            }
+        } finally {
+            this.environment = previous;
+        }
+    }
 }

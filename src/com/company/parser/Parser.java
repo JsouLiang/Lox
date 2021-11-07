@@ -58,7 +58,7 @@ public class Parser {
     }
 
     /**
-     * statement: exprStatement | printStatement | blockStatement
+     * statement: exprStatement | ifStatement | printStatement | blockStatement
      * @return
      */
     private Statement statement() {
@@ -79,6 +79,19 @@ public class Parser {
         Expression expression = expression();
         consume(TokenType.SEMICOLON, "Expect ';' after value.");
         return new Statement.ExprStatement(expression);
+    }
+
+    private Statement ifStatement() {
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'");
+        Expression condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after 'if' condition.");
+
+        Statement thenBranch = statement();
+        Statement elseBranch = null;
+        if (advanceIfMatch(TokenType.ELSE)) {
+            elseBranch = statement();
+        }
+        return new Statement.IfStatement(condition, thenBranch, elseBranch);
     }
 
     /**

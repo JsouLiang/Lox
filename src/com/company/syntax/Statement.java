@@ -14,6 +14,8 @@ public abstract class Statement {
         R visitVarDeclaration(VarDeclaration declaration);
 
         R visitBlockStatement(BlockStatement blockStatement);
+
+        R visitIfStatement(IfStatement ifStatement);
     }
 
     public abstract <R> R accept(Visitor<R> statement);
@@ -104,4 +106,32 @@ public abstract class Statement {
         }
     }
 
+    public static class IfStatement extends Statement {
+        public IfStatement(Expression condition, Statement thenBranch, Statement elseBranch) {
+            this.condition = condition;
+            this.thenBranch = thenBranch;
+            this.elseBranch = elseBranch;
+        }
+
+        public Expression getCondition() {
+            return condition;
+        }
+
+        public Statement getThenBranch() {
+            return thenBranch;
+        }
+
+        public Statement getElseBranch() {
+            return elseBranch;
+        }
+
+        final Expression condition;
+        final Statement thenBranch;
+        final Statement elseBranch;
+
+        @Override
+        public <R> R accept(Visitor<R> statement) {
+            return statement.visitIfStatement(this);
+        }
+    }
 }

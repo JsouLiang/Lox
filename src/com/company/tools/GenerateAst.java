@@ -24,7 +24,7 @@ public class GenerateAst {
 
     private static void defineAst(String outputDir, String baseName, List<String> types) throws IOException {
         String path = outputDir + "/" + baseName + ".java";
-        PrintWriter writer = new PrintWriter(path, StandardCharsets.UTF_8);
+        PrintWriter writer = new PrintWriter(path, String.valueOf(StandardCharsets.UTF_8));
         writer.println("package com.company.syntax;");
         writer.println();
         writer.println("import java.util.List;");

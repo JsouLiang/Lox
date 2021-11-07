@@ -182,4 +182,14 @@ public class Interpreter implements Expression.Visitor<Object>, Statement.Visito
             this.environment = previous;
         }
     }
+
+    @Override
+    public Void visitIfStatement(Statement.IfStatement ifStatement) {
+        if (isTruthy(evaluate(ifStatement.getCondition()))) {
+            execute(ifStatement.getThenBranch());
+        } else if (ifStatement.getElseBranch() != null) {
+            execute(ifStatement.getElseBranch());
+        }
+        return null;
+    }
 }
